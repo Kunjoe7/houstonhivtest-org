@@ -213,14 +213,47 @@ export default function ChatbotScreening() {
   })
   const [isTyping, setIsTyping] = useState(false)
   const [showResults, setShowResults] = useState(false)
+  const [userHasScrolled, setUserHasScrolled] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const chatContainerRef = useRef<HTMLDivElement>(null)
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  const scrollToBottom = (force: boolean = false) => {
+    if (!messagesEndRef.current || !chatContainerRef.current) return
+    
+    const container = chatContainerRef.current
+    const isNearBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 100
+    
+    // Only auto-scroll if user is near bottom or if forced
+    if (force || (!userHasScrolled && isNearBottom)) {
+      messagesEndRef.current.scrollIntoView({ 
+        behavior: 'smooth',
+        block: 'end'
+      })
+    }
+  }
+
+  const handleScroll = () => {
+    if (!chatContainerRef.current) return
+    
+    const container = chatContainerRef.current
+    const isAtBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 50
+    
+    // Reset userHasScrolled if they scroll back to bottom
+    if (isAtBottom) {
+      setUserHasScrolled(false)
+    } else {
+      setUserHasScrolled(true)
+    }
   }
 
   useEffect(() => {
-    scrollToBottom()
+    // Only scroll on new bot messages, not user messages
+    if (messages.length > 0) {
+      const lastMessage = messages[messages.length - 1]
+      if (lastMessage.type === 'bot') {
+        setTimeout(() => scrollToBottom(), 100)
+      }
+    }
   }, [messages])
 
   useEffect(() => {
@@ -413,7 +446,11 @@ export default function ChatbotScreening() {
       </div>
 
       {/* Chat Messages */}
-      <div className="h-96 overflow-y-auto p-6 space-y-4 bg-gray-50">
+      <div 
+        ref={chatContainerRef}
+        onScroll={handleScroll}
+        className="h-96 overflow-y-auto p-6 space-y-4 bg-gray-50"
+      >
         {messages.map((message) => (
           <div
             key={message.id}
